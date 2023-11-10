@@ -1,61 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { Text, SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card } from 'react-native-paper';
-import Geolocation from '@react-native-community/geolocation';
+import * as Location from 'expo-location';
 
 export default function App() {
   const [timer, setTimer] = useState(0);
   const [distance, setDistance] = useState(0);
   const [isTracking, setIsTracking] = useState(false);
+  const [watchId, setWatchId] = useState(null);
+  const [intervalId, setIntervalId] = useState(null);
+
+  const startTracking = () => {
+    setIsTracking(true);
+    const id = Location.watchPositionAsync(
+      (position) => {
+        setDistance(calculateDistance(position.coords.latitude, position.coords.longitude));
+      },
+      (error) => console.log(error),
+      { enableHighAccuracy: true, distanceFilter: 10 }
+    );
+    setWatchId(id);
+  };
+
+  const stopTracking = () => {
+    setIsTracking(false);
+    if (watchId) {
+      Location.stopLocationUpdatesAsync(watchId);
+    }
+  };
 
   useEffect(() => {
-    let watchId;
-
-    const startTracking = () => {
-      setIsTracking(true);
-      watchId = Geolocation.watchPosition(
-        (position) => {
-          // Update distance calculation based on new location
-          setDistance(calculateDistance(position.coords.latitude, position.coords.longitude));
-        },
-        (error) => console.log(error),
-        { enableHighAccuracy: true, distanceFilter: 10 } // Adjust the distance filter as needed
-      );
-    };
-
-    const stopTracking = () => {
-      setIsTracking(false);
-      Geolocation.clearWatch(watchId);
-      // You can add additional logic here if needed
-    };
-
     if (isTracking && distance >= 100) {
       stopTracking();
     }
-
-    return () => {
-      Geolocation.clearWatch(watchId);
-    };
   }, [isTracking, distance]);
 
   const startTimer = () => {
     setTimer(0);
     startTracking();
-    const intervalId = setInterval(() => {
+    const id = setInterval(() => {
       setTimer((prevTimer) => prevTimer + 1);
     }, 1000);
+    setIntervalId(id);
   };
 
   const calculateDistance = (lat, lon) => {
-    // You need to implement a distance calculation algorithm based on latitude and longitude
-    // This is a simplified example using a dummy function
-    return Math.random() * 200; // Replace with actual distance calculation
+    return Math.random() * 200;
   };
 
   const resetTimer = () => {
     setIsTracking(false);
     setTimer(0);
     setDistance(0);
+  
+    // Clear the location updates
+    if (watchId) {
+      Location.stopLocationUpdatesAsync(watchId);
+      setWatchId(null);
+    }
+  
+    // Clear the interval that updates the timer
+    clearInterval(intervalId);
+    setIntervalId(null);
   };
 
   return (
